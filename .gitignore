@@ -1,5 +1,9 @@
 node_modules
 npm-debug.log*
+api-dev.log
+web-start.log
+web-dev.log
+web-dev-3010.log
 !.github/workflows/*.yml
 .next
 dist

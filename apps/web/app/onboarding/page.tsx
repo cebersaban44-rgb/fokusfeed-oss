@@ -1,14 +1,17 @@
+import { TwitterConnectCard } from "@/components/twitter-connect-card";
+
 export default function OnboardingPage() {
   return (
     <main>
       <h1 className="page-title">Onboarding</h1>
-      <p className="page-sub">Connect Twitter/X, auto-assign RSS sources, and build the first profile in under 5 minutes.</p>
+      <p className="page-sub">Feed ekranlarına geçmeden önce Twitter/X hesabını bağlaman gerekiyor.</p>
+      <TwitterConnectCard />
       <section className="panel">
         <ol>
-          <li>Start OAuth: POST /v1/auth/twitter/start</li>
-          <li>Complete callback: GET /v1/auth/twitter/callback</li>
-          <li>Seed profile from follows and interactions</li>
-          <li>Generate first digest</li>
+          <li>Twitter ile Bağlan butonuna tıkla</li>
+          <li>X izin ekranını onayla</li>
+          <li>Otomatik callback tamamlanır</li>
+          <li>Bağlantı varsa sistem seni digest ekranına geçirir</li>
         </ol>
       </section>
     </main>
