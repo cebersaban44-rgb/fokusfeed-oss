@@ -1,7 +1,10 @@
+import { resolve } from "node:path";
 import { loadEnv } from "@fokusfeed/config";
 import { createApp } from "./app";
+import { loadProcessEnvFromFiles } from "./lib/env-file";
 
 async function main() {
+  loadProcessEnvFromFiles([resolve(process.cwd(), ".env"), resolve(process.cwd(), "apps/api/.env")]);
   const env = loadEnv(process.env);
   const app = createApp();
 
