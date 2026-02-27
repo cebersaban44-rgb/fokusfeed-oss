@@ -1,6 +1,7 @@
 ﻿import type { FeedCategory, FeedItem, TwitterFeedLink, TwitterFeedMedia } from "@fokusfeed/shared-types";
 
 type TwitterFeedErrorCode =
+  | "TWITTER_CREDITS_DEPLETED"
   | "TWITTER_SCOPE_MISSING"
   | "TWITTER_RATE_LIMITED"
   | "TWITTER_TOKEN_EXPIRED"
@@ -93,6 +94,10 @@ function compactText(text: string): string {
 }
 
 function mapTwitterErrorCode(statusCode: number): TwitterFeedErrorCode {
+  if (statusCode === 402) {
+    return "TWITTER_CREDITS_DEPLETED";
+  }
+
   if (statusCode === 401) {
     return "TWITTER_TOKEN_EXPIRED";
   }

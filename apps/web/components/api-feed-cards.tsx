@@ -7,6 +7,7 @@ type FeedMode = "digest" | "live";
 
 type FeedErrorCode =
   | "TWITTER_CONNECTION_REQUIRED"
+  | "TWITTER_CREDITS_DEPLETED"
   | "TWITTER_SCOPE_MISSING"
   | "TWITTER_RATE_LIMITED"
   | "TWITTER_TOKEN_EXPIRED"
@@ -76,6 +77,10 @@ function mapErrorMessage(code: FeedErrorCode | undefined, message: string | unde
 
   if (code === "TWITTER_SCOPE_MISSING") {
     return "Twitter uygulama izinleri yetersiz. tweet.read ve users.read izinlerini kontrol et.";
+  }
+
+  if (code === "TWITTER_CREDITS_DEPLETED") {
+    return "X API kredin bitmis. Developer portal uzerinden kredi yuklemeden feed cekilemez.";
   }
 
   if (code === "TWITTER_RATE_LIMITED") {

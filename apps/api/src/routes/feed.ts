@@ -48,6 +48,10 @@ function statusCodeForTwitterError(code: string): number {
     return 401;
   }
 
+  if (code === API_ERROR_CODES.TWITTER_CREDITS_DEPLETED) {
+    return 402;
+  }
+
   if (code === API_ERROR_CODES.TWITTER_SCOPE_MISSING) {
     return 403;
   }
