@@ -42,7 +42,7 @@ function buildMockTokenResponse(code: string): TwitterTokenResponse {
 }
 
 export async function exchangeCodeForTwitterToken(input: ExchangeCodeInput): Promise<TwitterTokenResponse> {
-  if (input.mock) {
+  if (input.mock && process.env.NODE_ENV === "test") {
     return buildMockTokenResponse(input.code);
   }
 

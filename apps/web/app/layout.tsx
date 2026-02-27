@@ -4,7 +4,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "FokusFeed OSS",
-  description: "Personalized digest and live feed with deterministic fallback"
+  description: "Personalized digest and live feed powered by real Twitter/X API data"
 };
 
 const swBootScript =

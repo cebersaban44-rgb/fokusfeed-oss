@@ -32,6 +32,36 @@ export interface CursorPage<T> {
   nextCursor?: string;
 }
 
+export interface TwitterFeedAuthor {
+  id: string;
+  name: string;
+  username: string;
+  avatarUrl?: string;
+  verified?: boolean;
+}
+
+export interface TwitterFeedMedia {
+  mediaKey: string;
+  type: "photo" | "video" | "animated_gif" | "unknown";
+  mediaUrl?: string;
+  previewImageUrl?: string;
+  width?: number;
+  height?: number;
+}
+
+export interface TwitterFeedLink {
+  url: string;
+  expandedUrl?: string;
+  displayUrl?: string;
+}
+
+export interface TwitterFeedMetrics {
+  likeCount: number;
+  repostCount: number;
+  replyCount: number;
+  quoteCount: number;
+}
+
 export interface FeedItem {
   id: string;
   source: "twitter" | "rss";
@@ -48,6 +78,13 @@ export interface FeedItem {
   clusterId: string;
   publishedAt: string;
   url: string;
+  tweetId?: string;
+  text?: string;
+  author?: TwitterFeedAuthor;
+  media?: TwitterFeedMedia[];
+  links?: TwitterFeedLink[];
+  metrics?: TwitterFeedMetrics;
+  permalink?: string;
 }
 
 export interface SavedItem {

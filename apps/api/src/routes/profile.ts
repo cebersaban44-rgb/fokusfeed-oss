@@ -33,7 +33,11 @@ export async function profileRoutes(app: FastifyInstance, options: ProfileRouteO
     const status = store.getTwitterConnectionStatus(request.authContext!.tenantId, request.authContext!.userId);
     return buildSuccess(request.requestId, {
       connected: status.connected,
+      ...(status.connectedAt ? { connectedAt: status.connectedAt } : {}),
       ...(status.lastSyncAt ? { lastSyncAt: status.lastSyncAt } : {}),
+      ...(status.lastErrorCode ? { lastErrorCode: status.lastErrorCode } : {}),
+      ...(status.lastErrorAt ? { lastErrorAt: status.lastErrorAt } : {}),
+      ...(status.scopes ? { scopes: status.scopes } : {}),
       readBudget: {
         used: 0,
         remaining: 100,

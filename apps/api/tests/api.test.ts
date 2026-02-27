@@ -3,6 +3,8 @@ import { createApp } from "../src/app";
 import { encryptValue } from "../src/lib/crypto";
 import { store } from "../src/store/in-memory";
 
+process.env.TWITTER_OAUTH_MOCK = "true";
+
 const authHeaders = {
   "x-tenant-id": "tenant-demo",
   "x-user-id": "user-demo"
@@ -25,18 +27,17 @@ describe("API integration", () => {
     expect(res.json().code).toBe("AUTH_UNAUTHORIZED");
   });
 
-  it("returns feed with deterministic generation mode by default", async () => {
+  it("requires connected twitter account for feed", async () => {
     const res = await app.inject({
       method: "GET",
       url: "/v1/feed?mode=digest&limit=10",
       headers: authHeaders
     });
 
-    expect(res.statusCode).toBe(200);
+    expect(res.statusCode).toBe(403);
     const body = res.json();
-    expect(body.ok).toBe(true);
-    expect(body.meta.generationMode).toBe("deterministic");
-    expect(Array.isArray(body.data.items)).toBe(true);
+    expect(body.ok).toBe(false);
+    expect(body.code).toBe("TWITTER_CONNECTION_REQUIRED");
   });
 
   it("enforces write idempotency conflicts", async () => {

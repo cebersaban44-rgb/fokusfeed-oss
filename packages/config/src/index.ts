@@ -19,7 +19,7 @@ const envSchema = z.object({
   TWITTER_AUTHORIZE_URL: z.string().url().default("https://x.com/i/oauth2/authorize"),
   TWITTER_TOKEN_URL: z.string().url().default("https://api.x.com/2/oauth2/token"),
   TWITTER_STATE_TTL_SECONDS: z.coerce.number().int().min(60).max(3600).default(600),
-  TWITTER_OAUTH_MOCK: booleanFromString.default("true")
+  TWITTER_OAUTH_MOCK: booleanFromString.default("false")
 });
 
 export type AppEnv = z.infer<typeof envSchema>;

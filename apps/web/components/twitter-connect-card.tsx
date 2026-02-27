@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 
@@ -9,7 +9,10 @@ const userId = process.env.NEXT_PUBLIC_USER_ID ?? "user-demo";
 interface TwitterStatusPayload {
   data?: {
     connected?: boolean;
+    connectedAt?: string;
     lastSyncAt?: string;
+    lastErrorCode?: string;
+    lastErrorAt?: string;
   };
 }
 
@@ -33,6 +36,7 @@ export function TwitterConnectCard() {
   const [connected, setConnected] = useState(false);
   const [checkingStatus, setCheckingStatus] = useState(true);
   const [connecting, setConnecting] = useState(false);
+  const [statusMeta, setStatusMeta] = useState<{ lastSyncAt?: string; lastErrorCode?: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const checkStatus = async () => {
@@ -48,15 +52,21 @@ export function TwitterConnectCard() {
 
       if (!response.ok) {
         setConnected(false);
-        setError("Twitter bağlantı durumu alınamadı.");
+        setStatusMeta(null);
+        setError("Twitter baglanti durumu alinamadi.");
         return;
       }
 
       const payload = (await response.json()) as TwitterStatusPayload;
       setConnected(Boolean(payload.data?.connected));
+      setStatusMeta({
+        lastSyncAt: payload.data?.lastSyncAt,
+        lastErrorCode: payload.data?.lastErrorCode
+      });
     } catch {
       setConnected(false);
-      setError("API'ye bağlanılamadı. API servisinin çalıştığını kontrol et.");
+      setStatusMeta(null);
+      setError("API servisine baglanilamadi. API calistigini kontrol et.");
     } finally {
       setCheckingStatus(false);
     }
@@ -80,13 +90,13 @@ export function TwitterConnectCard() {
 
       const payload = (await response.json()) as TwitterStartPayload;
       if (!response.ok || !payload.data?.authUrl) {
-        setError(payload.message ?? "Twitter OAuth başlatılamadı.");
+        setError(payload.message ?? "Twitter OAuth baslatilamadi.");
         return;
       }
 
       window.location.assign(payload.data.authUrl);
     } catch {
-      setError("Twitter bağlantısı başlatılamadı. Ağ bağlantısını kontrol et.");
+      setError("Twitter baglantisi baslatilamadi. Ag baglantini kontrol et.");
     } finally {
       setConnecting(false);
     }
@@ -94,17 +104,19 @@ export function TwitterConnectCard() {
 
   return (
     <section className="panel">
-      <h3 style={{ marginTop: 0 }}>Twitter/X Bağlantısı Zorunlu</h3>
-      <p className="page-sub">Twitter hesabı bağlanmadan feed ekranlarına erişim kapalıdır.</p>
+      <h3 style={{ marginTop: 0 }}>Twitter/X Baglantisi Zorunlu</h3>
+      <p className="page-sub">Twitter hesabi baglanmadan feed ekranlarina erisim kapali.</p>
 
-      {checkingStatus ? <p>Bağlantı durumu kontrol ediliyor...</p> : null}
-      {!checkingStatus && connected ? <p style={{ color: "var(--ok)" }}>Twitter hesabı bağlı.</p> : null}
-      {!checkingStatus && !connected ? <p style={{ color: "var(--warn)" }}>Twitter hesabı henüz bağlı değil.</p> : null}
+      {checkingStatus ? <p>Baglanti durumu kontrol ediliyor...</p> : null}
+      {!checkingStatus && connected ? <p style={{ color: "var(--ok)" }}>Twitter hesabi bagli.</p> : null}
+      {!checkingStatus && !connected ? <p style={{ color: "var(--warn)" }}>Twitter hesabi henuz bagli degil.</p> : null}
+      {statusMeta?.lastSyncAt ? <p className="footer-note">Son senkron: {new Date(statusMeta.lastSyncAt).toLocaleString()}</p> : null}
+      {statusMeta?.lastErrorCode ? <p className="footer-note">Son hata: {statusMeta.lastErrorCode}</p> : null}
       {error ? <p style={{ color: "var(--warn)" }}>{error}</p> : null}
 
       <div className="controls">
         <button type="button" className="btn primary" onClick={startOAuth} disabled={checkingStatus || connecting}>
-          {connecting ? "Yönlendiriliyor..." : "Twitter ile Bağlan"}
+          {connecting ? "Yonlendiriliyor..." : "Twitter ile Baglan"}
         </button>
         <button type="button" className="btn" onClick={checkStatus} disabled={connecting}>
           Durumu Yenile

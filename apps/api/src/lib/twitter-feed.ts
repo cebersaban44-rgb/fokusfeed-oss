@@ -1,9 +1,32 @@
-import type { FeedCategory, FeedItem } from "@fokusfeed/shared-types";
+﻿import type { FeedCategory, FeedItem, TwitterFeedLink, TwitterFeedMedia } from "@fokusfeed/shared-types";
+
+type TwitterFeedErrorCode =
+  | "TWITTER_SCOPE_MISSING"
+  | "TWITTER_RATE_LIMITED"
+  | "TWITTER_TOKEN_EXPIRED"
+  | "TWITTER_FEED_UNAVAILABLE";
 
 interface TwitterUser {
   id: string;
   name?: string;
   username?: string;
+  profile_image_url?: string;
+  verified?: boolean;
+}
+
+interface TwitterMedia {
+  media_key: string;
+  type?: string;
+  url?: string;
+  preview_image_url?: string;
+  width?: number;
+  height?: number;
+}
+
+interface TwitterTweetUrlEntity {
+  url: string;
+  expanded_url?: string;
+  display_url?: string;
 }
 
 interface TwitterTweet {
@@ -11,6 +34,12 @@ interface TwitterTweet {
   text: string;
   author_id?: string;
   created_at?: string;
+  attachments?: {
+    media_keys?: string[];
+  };
+  entities?: {
+    urls?: TwitterTweetUrlEntity[];
+  };
   public_metrics?: {
     like_count?: number;
     retweet_count?: number;
@@ -19,10 +48,18 @@ interface TwitterTweet {
   };
 }
 
+interface TwitterApiErrorBody {
+  title?: string;
+  detail?: string;
+  type?: string;
+  errors?: Array<{ code?: number; message?: string }>;
+}
+
 interface TwitterListResponse<T> {
   data?: T[];
   includes?: {
     users?: TwitterUser[];
+    media?: TwitterMedia[];
   };
 }
 
@@ -37,10 +74,86 @@ interface FetchTwitterFeedInput {
   category?: FeedCategory;
 }
 
+export class TwitterFeedError extends Error {
+  constructor(
+    public readonly code: TwitterFeedErrorCode,
+    public readonly statusCode: number,
+    message: string,
+    public readonly details?: Record<string, unknown>
+  ) {
+    super(message);
+    this.name = "TwitterFeedError";
+  }
+}
+
 const TWITTER_API_BASE = "https://api.x.com";
 
 function compactText(text: string): string {
   return text.replace(/\s+/g, " ").trim();
+}
+
+function mapTwitterErrorCode(statusCode: number): TwitterFeedErrorCode {
+  if (statusCode === 401) {
+    return "TWITTER_TOKEN_EXPIRED";
+  }
+
+  if (statusCode === 403) {
+    return "TWITTER_SCOPE_MISSING";
+  }
+
+  if (statusCode === 429) {
+    return "TWITTER_RATE_LIMITED";
+  }
+
+  return "TWITTER_FEED_UNAVAILABLE";
+}
+
+function normalizeMedia(media: TwitterMedia[] | undefined, mediaKeys: string[] | undefined): TwitterFeedMedia[] {
+  if (!mediaKeys || mediaKeys.length === 0) {
+    return [];
+  }
+
+  const byKey = new Map((media ?? []).map((entry) => [entry.media_key, entry]));
+
+  return mediaKeys
+    .map((mediaKey) => {
+      const source = byKey.get(mediaKey);
+      if (!source) {
+        return {
+          mediaKey,
+          type: "unknown" as const
+        };
+      }
+
+      const mediaType: TwitterFeedMedia["type"] =
+        source.type === "photo" || source.type === "video" || source.type === "animated_gif"
+          ? source.type
+          : "unknown";
+
+      return {
+        mediaKey,
+        type: mediaType,
+        mediaUrl: source.url,
+        previewImageUrl: source.preview_image_url,
+        width: source.width,
+        height: source.height
+      };
+    })
+    .slice(0, 4);
+}
+
+function normalizeLinks(urls: TwitterTweetUrlEntity[] | undefined): TwitterFeedLink[] {
+  if (!urls || urls.length === 0) {
+    return [];
+  }
+
+  return urls
+    .map((entry) => ({
+      url: entry.url,
+      expandedUrl: entry.expanded_url,
+      displayUrl: entry.display_url
+    }))
+    .slice(0, 3);
 }
 
 function selectCategory(metrics: TwitterTweet["public_metrics"]): FeedCategory {
@@ -61,7 +174,11 @@ function selectCategory(metrics: TwitterTweet["public_metrics"]): FeedCategory {
   return "following";
 }
 
-function toFeedItem(tweet: TwitterTweet, author: TwitterUser | undefined): FeedItem {
+function toFeedItem(
+  tweet: TwitterTweet,
+  author: TwitterUser | undefined,
+  includes: TwitterListResponse<TwitterTweet>["includes"]
+): FeedItem {
   const text = compactText(tweet.text || "");
   const category = selectCategory(tweet.public_metrics);
   const engagement =
@@ -75,10 +192,14 @@ function toFeedItem(tweet: TwitterTweet, author: TwitterUser | undefined): FeedI
   const trustScore = Number((0.65 + normalizedEngagement * 0.25).toFixed(2));
 
   const authorName = author?.name ?? author?.username ?? "Twitter user";
-  const authorHandle = author?.username ? `@${author.username}` : authorName;
-  const url = author?.username
+  const username = author?.username ?? "unknown";
+  const authorHandle = `@${username}`;
+  const permalink = author?.username
     ? `https://x.com/${author.username}/status/${tweet.id}`
     : `https://x.com/i/web/status/${tweet.id}`;
+
+  const media = normalizeMedia(includes?.media, tweet.attachments?.media_keys);
+  const links = normalizeLinks(tweet.entities?.urls);
 
   return {
     id: `tw-${tweet.id}`,
@@ -95,36 +216,100 @@ function toFeedItem(tweet: TwitterTweet, author: TwitterUser | undefined): FeedI
     sourceTrust: trustScore >= 0.8 ? "high" : trustScore >= 0.65 ? "medium" : "low",
     clusterId: `twitter-${tweet.author_id ?? tweet.id}`,
     publishedAt: tweet.created_at ?? new Date().toISOString(),
-    url
+    url: permalink,
+    tweetId: tweet.id,
+    text,
+    permalink,
+    author: {
+      id: author?.id ?? tweet.author_id ?? "unknown",
+      name: authorName,
+      username,
+      avatarUrl: author?.profile_image_url,
+      verified: author?.verified
+    },
+    media,
+    links,
+    metrics: {
+      likeCount: tweet.public_metrics?.like_count ?? 0,
+      repostCount: tweet.public_metrics?.retweet_count ?? 0,
+      replyCount: tweet.public_metrics?.reply_count ?? 0,
+      quoteCount: tweet.public_metrics?.quote_count ?? 0
+    }
   };
 }
 
 async function getJson<T>(url: string, accessToken: string): Promise<T> {
-  const response = await fetch(url, {
-    headers: {
-      authorization: `Bearer ${accessToken}`,
-      accept: "application/json"
-    }
-  });
-
-  if (!response.ok) {
-    throw new Error(`Twitter API request failed (${response.status}) for ${url}`);
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        accept: "application/json"
+      }
+    });
+  } catch (error) {
+    throw new TwitterFeedError("TWITTER_FEED_UNAVAILABLE", 503, "Twitter API request failed", {
+      cause: error instanceof Error ? error.message : "network_error"
+    });
   }
 
-  return (await response.json()) as T;
+  let raw: unknown;
+  if ("text" in response && typeof response.text === "function") {
+    const bodyText = await response.text();
+    if (bodyText) {
+      try {
+        raw = JSON.parse(bodyText) as unknown;
+      } catch {
+        raw = undefined;
+      }
+    }
+  } else if ("json" in response && typeof response.json === "function") {
+    raw = await response.json().catch(() => undefined);
+  }
+
+  if (!response.ok) {
+    const details = typeof raw === "object" && raw !== null ? (raw as TwitterApiErrorBody) : undefined;
+    throw new TwitterFeedError(
+      mapTwitterErrorCode(response.status),
+      response.status,
+      `Twitter API request failed (${response.status})`,
+      {
+        title: details?.title,
+        detail: details?.detail,
+        type: details?.type,
+        errors: details?.errors
+      }
+    );
+  }
+
+  return raw as T;
 }
 
 async function fetchMe(accessToken: string): Promise<TwitterUser> {
   const response = await getJson<TwitterSingleResponse<TwitterUser>>(
-    `${TWITTER_API_BASE}/2/users/me?user.fields=id,name,username`,
+    `${TWITTER_API_BASE}/2/users/me?user.fields=id,name,username,profile_image_url,verified`,
     accessToken
   );
 
   if (!response.data?.id) {
-    throw new Error("Twitter /2/users/me did not return a user");
+    throw new TwitterFeedError("TWITTER_FEED_UNAVAILABLE", 502, "Twitter /2/users/me did not return a user");
   }
 
   return response.data;
+}
+
+function buildEndpoint(basePath: string, mode: "digest" | "live", maxResults: number): URL {
+  const endpoint = new URL(basePath);
+  endpoint.searchParams.set("max_results", String(Math.max(5, Math.min(maxResults, 100))));
+  endpoint.searchParams.set("tweet.fields", "created_at,public_metrics,author_id,attachments,entities");
+  endpoint.searchParams.set("expansions", "author_id,attachments.media_keys");
+  endpoint.searchParams.set("user.fields", "id,name,username,profile_image_url,verified");
+  endpoint.searchParams.set("media.fields", "media_key,type,url,preview_image_url,width,height");
+  if (mode === "digest") {
+    endpoint.searchParams.set("exclude", "retweets,replies");
+  }
+
+  return endpoint;
 }
 
 async function fetchTimeline(
@@ -133,18 +318,7 @@ async function fetchTimeline(
   mode: "digest" | "live",
   maxResults: number
 ): Promise<TwitterListResponse<TwitterTweet>> {
-  const fields = "created_at,public_metrics,author_id";
-  const expansions = "author_id";
-  const userFields = "id,name,username";
-  const endpoint = new URL(`${TWITTER_API_BASE}/2/users/${userId}/timelines/reverse_chronological`);
-  endpoint.searchParams.set("max_results", String(maxResults));
-  endpoint.searchParams.set("tweet.fields", fields);
-  endpoint.searchParams.set("expansions", expansions);
-  endpoint.searchParams.set("user.fields", userFields);
-  if (mode === "digest") {
-    endpoint.searchParams.set("exclude", "retweets,replies");
-  }
-
+  const endpoint = buildEndpoint(`${TWITTER_API_BASE}/2/users/${userId}/timelines/reverse_chronological`, mode, maxResults);
   return getJson<TwitterListResponse<TwitterTweet>>(endpoint.toString(), accessToken);
 }
 
@@ -154,79 +328,32 @@ async function fetchOwnTweets(
   mode: "digest" | "live",
   maxResults: number
 ): Promise<TwitterListResponse<TwitterTweet>> {
-  const endpoint = new URL(`${TWITTER_API_BASE}/2/users/${userId}/tweets`);
-  endpoint.searchParams.set("max_results", String(maxResults));
-  endpoint.searchParams.set("tweet.fields", "created_at,public_metrics,author_id");
-  endpoint.searchParams.set("expansions", "author_id");
-  endpoint.searchParams.set("user.fields", "id,name,username");
-  if (mode === "digest") {
-    endpoint.searchParams.set("exclude", "retweets,replies");
-  }
-
+  const endpoint = buildEndpoint(`${TWITTER_API_BASE}/2/users/${userId}/tweets`, mode, maxResults);
   return getJson<TwitterListResponse<TwitterTweet>>(endpoint.toString(), accessToken);
 }
 
-function buildMockFeed(limit: number): FeedItem[] {
-  const now = new Date().toISOString();
-  const items: FeedItem[] = [
-    {
-      id: "tw-mock-1",
-      source: "twitter",
-      category: "following",
-      title: "@mockuser: OAuth bağlantısı tamamlandı",
-      summaryShort: "Twitter bağlantısı aktif. Gerçek veri yerine mock timeline gösteriliyor.",
-      reasonScore: 0.72,
-      reasonLabel: "Mock timeline",
-      importanceScore: 0.7,
-      trustScore: 0.82,
-      urgencyScore: 0.54,
-      skipImpact: "low",
-      sourceTrust: "high",
-      clusterId: "twitter-mock-1",
-      publishedAt: now,
-      url: "https://x.com/mockuser/status/1"
-    },
-    {
-      id: "tw-mock-2",
-      source: "twitter",
-      category: "must_see",
-      title: "@mockuser: İlk ingest adımı hazır",
-      summaryShort: "Bu içerik, API okuması başarısızsa fallback olarak görünür.",
-      reasonScore: 0.77,
-      reasonLabel: "Mock timeline",
-      importanceScore: 0.79,
-      trustScore: 0.82,
-      urgencyScore: 0.73,
-      skipImpact: "medium",
-      sourceTrust: "high",
-      clusterId: "twitter-mock-2",
-      publishedAt: now,
-      url: "https://x.com/mockuser/status/2"
-    }
-  ];
-
-  return items.slice(0, limit);
+function shouldFallbackToOwnTweets(error: unknown): boolean {
+  return error instanceof TwitterFeedError && (error.statusCode === 403 || error.statusCode === 404);
 }
 
 export async function fetchTwitterFeedItems(input: FetchTwitterFeedInput): Promise<FeedItem[]> {
-  if (input.accessToken.startsWith("mock-access-")) {
-    const mock = buildMockFeed(input.limit);
-    return input.category ? mock.filter((item) => item.category === input.category) : mock;
-  }
-
   const me = await fetchMe(input.accessToken);
 
   let response: TwitterListResponse<TwitterTweet>;
   try {
-    response = await fetchTimeline(me.id, input.accessToken, input.mode, Math.min(input.limit, 20));
-  } catch {
-    response = await fetchOwnTweets(me.id, input.accessToken, input.mode, Math.min(input.limit, 20));
+    response = await fetchTimeline(me.id, input.accessToken, input.mode, Math.min(input.limit, 50));
+  } catch (error) {
+    if (!shouldFallbackToOwnTweets(error)) {
+      throw error;
+    }
+
+    response = await fetchOwnTweets(me.id, input.accessToken, input.mode, Math.min(input.limit, 50));
   }
 
   const tweets = response.data ?? [];
   const users = response.includes?.users ?? [];
   const userById = new Map(users.map((user) => [user.id, user]));
-  const mapped = tweets.map((tweet) => toFeedItem(tweet, userById.get(tweet.author_id ?? me.id) ?? me));
+  const mapped = tweets.map((tweet) => toFeedItem(tweet, userById.get(tweet.author_id ?? me.id) ?? me, response.includes));
 
   const filtered = input.category ? mapped.filter((item) => item.category === input.category) : mapped;
   return filtered.slice(0, input.limit);

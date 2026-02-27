@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { deterministicAskAnswer, deterministicSummary, estimateTimeSavedMs, rankFeedCandidates } from "@fokusfeed/domain";
 import type { CursorPage, FeedItem, SavedItem } from "@fokusfeed/shared-types";
-import { demoCandidates, demoSavedItems, demoTenantId, demoUserId } from "@fokusfeed/test-utils";
+import { demoCandidates } from "@fokusfeed/test-utils";
 import { decodeCursor, encodeCursor } from "../lib/cursor";
 
 export interface SaveInput {
@@ -51,13 +51,14 @@ export interface TwitterTokenRecord {
   updatedAt: string;
   revokedAt?: string;
   lastSyncAt?: string;
+  lastErrorCode?: string;
+  lastErrorAt?: string;
 }
 
 export class InMemoryStore {
   private rankedFeed = rankFeedCandidates(demoCandidates);
   private sources = [
-    { id: "src-x", kind: "twitter", title: "Twitter/X Following", url: "https://x.com" },
-    { id: "src-rss-1", kind: "rss", title: "Engineering Weekly", url: "https://rss.example/eng.xml" }
+    { id: "src-x", kind: "twitter", title: "Twitter/X Following", url: "https://x.com" }
   ];
 
   private savedByUser = new Map<string, SavedItem[]>();
@@ -69,9 +70,7 @@ export class InMemoryStore {
   private oauthStateSessions = new Map<string, OAuthStateSessionRecord>();
   private twitterTokens = new Map<string, TwitterTokenRecord>();
 
-  constructor() {
-    this.savedByUser.set(this.userScope(demoTenantId, demoUserId), [...demoSavedItems]);
-  }
+  constructor() {}
 
   private userScope(tenantId: string, userId: string): string {
     return `${tenantId}:${userId}`;
@@ -347,7 +346,14 @@ export class InMemoryStore {
   getTwitterConnectionStatus(
     tenantId: string,
     userId: string
-  ): { connected: boolean; connectedAt?: string; lastSyncAt?: string } {
+  ): {
+    connected: boolean;
+    connectedAt?: string;
+    lastSyncAt?: string;
+    lastErrorCode?: string;
+    lastErrorAt?: string;
+    scopes?: string[];
+  } {
     const token = this.getTwitterToken(tenantId, userId);
     if (!token || token.revokedAt) {
       return { connected: false };
@@ -356,8 +362,48 @@ export class InMemoryStore {
     return {
       connected: true,
       connectedAt: token.createdAt,
-      ...(token.lastSyncAt ? { lastSyncAt: token.lastSyncAt } : {})
+      ...(token.scope ? { scopes: token.scope.split(/\s+/).filter(Boolean) } : {}),
+      ...(token.lastSyncAt ? { lastSyncAt: token.lastSyncAt } : {}),
+      ...(token.lastErrorCode ? { lastErrorCode: token.lastErrorCode } : {}),
+      ...(token.lastErrorAt ? { lastErrorAt: token.lastErrorAt } : {})
     };
+  }
+
+  markTwitterSyncSuccess(tenantId: string, userId: string, syncedAt: string): TwitterTokenRecord | undefined {
+    const scope = this.userScope(tenantId, userId);
+    const token = this.twitterTokens.get(scope);
+    if (!token || token.revokedAt) {
+      return undefined;
+    }
+
+    const updated: TwitterTokenRecord = {
+      ...token,
+      lastSyncAt: syncedAt,
+      lastErrorCode: undefined,
+      lastErrorAt: undefined,
+      updatedAt: syncedAt
+    };
+
+    this.twitterTokens.set(scope, updated);
+    return updated;
+  }
+
+  markTwitterSyncError(tenantId: string, userId: string, errorCode: string, at: string): TwitterTokenRecord | undefined {
+    const scope = this.userScope(tenantId, userId);
+    const token = this.twitterTokens.get(scope);
+    if (!token || token.revokedAt) {
+      return undefined;
+    }
+
+    const updated: TwitterTokenRecord = {
+      ...token,
+      lastErrorCode: errorCode,
+      lastErrorAt: at,
+      updatedAt: at
+    };
+
+    this.twitterTokens.set(scope, updated);
+    return updated;
   }
 
   getProfileInterests(tenantId: string, userId: string): Array<{ topic: string; score: number }> {
@@ -378,8 +424,7 @@ export class InMemoryStore {
 
   getSourceTrustGraph(): Array<{ source: string; trustScore: number }> {
     return [
-      { source: "twitter", trustScore: 0.78 },
-      { source: "rss", trustScore: 0.86 }
+      { source: "twitter", trustScore: 0.78 }
     ];
   }
 

@@ -5,7 +5,7 @@ export default function AskSavedPage() {
   return (
     <main>
       <h1 className="page-title">Ask Saved</h1>
-      <p className="page-sub">Natural language recall over saved items. Deterministic fallback remains available.</p>
+      <p className="page-sub">Natural language recall over saved items.</p>
       <AskSavedForm />
       <section className="panel">
         <ScreenStateCards />
