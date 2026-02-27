@@ -1,4 +1,4 @@
-import { DemoFeedCards } from "@/components/demo-feed-cards";
+import { ApiFeedCards } from "@/components/api-feed-cards";
 import { ScreenStateCards } from "@/components/screen-states";
 
 export default function LivePage() {
@@ -10,7 +10,7 @@ export default function LivePage() {
         <span className="badge">Refresh Window: 10 min</span>
         <p className="footer-note">No endless scroll. Use explicit refresh cycle.</p>
       </section>
-      <DemoFeedCards mode="live" />
+      <ApiFeedCards mode="live" />
       <section className="panel">
         <ScreenStateCards />
       </section>

@@ -108,7 +108,7 @@ export function createApp(options: AppOptions = {}) {
     }
   });
   app.register(sourceRoutes);
-  app.register(feedRoutes);
+  app.register(feedRoutes, { encryptionKey: env.APP_ENCRYPTION_KEY });
   app.register(savedRoutes);
   app.register(profileRoutes, { encryptionKey: env.APP_ENCRYPTION_KEY });
   app.register(sessionRoutes);

@@ -1,7 +1,10 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { buildError, buildSuccess } from "../lib/api-response";
+import { decodeCursor, encodeCursor } from "../lib/cursor";
+import { decryptValue } from "../lib/crypto";
 import { withIdempotency } from "../lib/idempotent-handler";
+import { fetchTwitterFeedItems } from "../lib/twitter-feed";
 import { store } from "../store/in-memory";
 import { idempotencyStore } from "../state";
 import { API_ERROR_CODES } from "../types";
@@ -21,7 +24,22 @@ const feedbackBodySchema = z.object({
   ts: z.string().datetime()
 });
 
-export async function feedRoutes(app: FastifyInstance): Promise<void> {
+interface FeedRouteOptions {
+  encryptionKey: string;
+}
+
+function paginateItems<T>(items: T[], cursor: string | undefined, limit: number): { items: T[]; nextCursor?: string } {
+  const offset = decodeCursor(cursor);
+  const page = items.slice(offset, offset + limit);
+  const nextOffset = offset + page.length;
+
+  return {
+    items: page,
+    ...(nextOffset < items.length ? { nextCursor: encodeCursor(nextOffset) } : {})
+  };
+}
+
+export async function feedRoutes(app: FastifyInstance, options: FeedRouteOptions): Promise<void> {
   app.get("/v1/feed", async (request, reply) => {
     const parsed = feedQuerySchema.safeParse(request.query);
     if (!parsed.success) {
@@ -31,8 +49,27 @@ export async function feedRoutes(app: FastifyInstance): Promise<void> {
     }
 
     const { mode, category, cursor, limit } = parsed.data;
-    const page = store.listFeed(mode, category, cursor, limit);
+    let page = store.listFeed(mode, category, cursor, limit);
     const generationMode = store.getGenerationMode(request.authContext!.tenantId, request.authContext!.userId);
+
+    const twitterToken = store.getTwitterToken(request.authContext!.tenantId, request.authContext!.userId);
+    if (twitterToken && !twitterToken.revokedAt) {
+      try {
+        const accessToken = decryptValue(twitterToken.accessTokenCiphertext, options.encryptionKey);
+        const twitterItems = await fetchTwitterFeedItems({
+          accessToken,
+          mode,
+          limit: Math.min(limit * 2, 50),
+          category
+        });
+
+        if (twitterItems.length > 0) {
+          page = paginateItems(twitterItems, cursor, limit);
+        }
+      } catch (error) {
+        request.log.warn({ err: error }, "Twitter feed fetch failed, falling back to deterministic feed");
+      }
+    }
 
     return buildSuccess(request.requestId, page, generationMode);
   });
