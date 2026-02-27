@@ -1,0 +1,30 @@
+{
+  "name": "fokusfeed-oss",
+  "version": "1.0.0",
+  "private": true,
+  "description": "FokusFeed OSS v1.0 monorepo baseline",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=20.9.0",
+    "npm": ">=10.0.0"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build:packages": "npm run build -w @fokusfeed/shared-types && npm run build -w @fokusfeed/domain && npm run build -w @fokusfeed/config && npm run build -w @fokusfeed/test-utils",
+    "build": "npm run build -w @fokusfeed/shared-types && npm run build -w @fokusfeed/domain && npm run build -w @fokusfeed/config && npm run build -w @fokusfeed/test-utils && npm run build -w @fokusfeed/api && npm run build -w @fokusfeed/worker && npm run build -w @fokusfeed/web",
+    "dev": "concurrently \"npm run dev -w @fokusfeed/api\" \"npm run dev -w @fokusfeed/worker\" \"npm run dev -w @fokusfeed/web\"",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run build:packages && npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present"
+  },
+  "devDependencies": {
+    "@types/node": "^24.5.2",
+    "concurrently": "^9.2.0",
+    "tsx": "^4.20.3",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}

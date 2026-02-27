@@ -1,0 +1,28 @@
+{
+  "name": "@fokusfeed/api",
+  "version": "1.0.0",
+  "main": "dist/server.js",
+  "types": "dist/server.d.ts",
+  "dependencies": {
+    "@fastify/cors": "^11.1.0",
+    "@fokusfeed/config": "1.0.0",
+    "@fokusfeed/domain": "1.0.0",
+    "@fokusfeed/shared-types": "1.0.0",
+    "@fokusfeed/test-utils": "1.0.0",
+    "fastify": "^5.5.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.5.2",
+    "typescript": "^5.9.2",
+    "tsx": "^4.20.3",
+    "vitest": "^3.2.4"
+  },
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
+  }
+}

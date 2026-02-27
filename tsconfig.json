@@ -1,0 +1,12 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/shared-types" },
+    { "path": "packages/domain" },
+    { "path": "packages/config" },
+    { "path": "packages/test-utils" },
+    { "path": "apps/api" },
+    { "path": "apps/worker" },
+    { "path": "apps/web" }
+  ]
+}

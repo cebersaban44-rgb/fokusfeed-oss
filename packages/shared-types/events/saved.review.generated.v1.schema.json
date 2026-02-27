@@ -1,0 +1,68 @@
+{
+    "$schema":  "https://json-schema.org/draft/2020-12/schema",
+    "$id":  "https://fokusfeed.dev/schemas/events/saved.review.generated.v1.schema.json",
+    "title":  "saved.review.generated v1",
+    "type":  "object",
+    "additionalProperties":  false,
+    "properties":  {
+                       "event_id":  {
+                                        "minLength":  1,
+                                        "type":  "string"
+                                    },
+                       "event_type":  {
+                                          "const":  "saved.review.generated"
+                                      },
+                       "event_version":  {
+                                             "const":  "v1"
+                                         },
+                       "occurred_at":  {
+                                           "type":  "string",
+                                           "format":  "date-time"
+                                       },
+                       "producer":  {
+                                        "minLength":  1,
+                                        "type":  "string"
+                                    },
+                       "partition_key":  {
+                                             "minLength":  1,
+                                             "type":  "string"
+                                         },
+                       "dedupe_key":  {
+                                          "minLength":  1,
+                                          "type":  "string"
+                                      },
+                       "payload":  {
+                                       "type":  "object",
+                                       "additionalProperties":  true,
+                                       "properties":  {
+                                                          "user_id":  {
+                                                                          "type":  "string"
+                                                                      },
+                                                          "week_id":  {
+                                                                          "type":  "string"
+                                                                      },
+                                                          "highlights":  {
+                                                                             "items":  {
+                                                                                           "type":  "string"
+                                                                                       },
+                                                                             "type":  "array"
+                                                                         }
+                                                      },
+                                       "required":  [
+                                                        "user_id",
+                                                        "week_id",
+                                                        "highlights"
+                                                    ]
+                                   }
+                   },
+    "required":  [
+                     "event_id",
+                     "event_type",
+                     "event_version",
+                     "occurred_at",
+                     "producer",
+                     "partition_key",
+                     "dedupe_key",
+                     "payload"
+                 ]
+}

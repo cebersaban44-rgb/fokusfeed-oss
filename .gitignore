@@ -1,0 +1,17 @@
+node_modules
+npm-debug.log*
+!.github/workflows/*.yml
+.next
+dist
+coverage
+.env
+.env.*
+!.env.example
+.worktrees
+worktrees
+.DS_Store
+*.local
+*.tsbuildinfo
+
+# local infra volumes
+infra/.volumes

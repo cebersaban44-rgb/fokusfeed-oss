@@ -1,0 +1,65 @@
+{
+    "$schema":  "https://json-schema.org/draft/2020-12/schema",
+    "$id":  "https://fokusfeed.dev/schemas/events/digest.generated.v1.schema.json",
+    "title":  "digest.generated v1",
+    "type":  "object",
+    "additionalProperties":  false,
+    "properties":  {
+                       "event_id":  {
+                                        "minLength":  1,
+                                        "type":  "string"
+                                    },
+                       "event_type":  {
+                                          "const":  "digest.generated"
+                                      },
+                       "event_version":  {
+                                             "const":  "v1"
+                                         },
+                       "occurred_at":  {
+                                           "type":  "string",
+                                           "format":  "date-time"
+                                       },
+                       "producer":  {
+                                        "minLength":  1,
+                                        "type":  "string"
+                                    },
+                       "partition_key":  {
+                                             "minLength":  1,
+                                             "type":  "string"
+                                         },
+                       "dedupe_key":  {
+                                          "minLength":  1,
+                                          "type":  "string"
+                                      },
+                       "payload":  {
+                                       "type":  "object",
+                                       "additionalProperties":  true,
+                                       "properties":  {
+                                                          "user_id":  {
+                                                                          "type":  "string"
+                                                                      },
+                                                          "digest_window":  {
+                                                                                "type":  "string"
+                                                                            },
+                                                          "item_count":  {
+                                                                             "type":  "number"
+                                                                         }
+                                                      },
+                                       "required":  [
+                                                        "user_id",
+                                                        "digest_window",
+                                                        "item_count"
+                                                    ]
+                                   }
+                   },
+    "required":  [
+                     "event_id",
+                     "event_type",
+                     "event_version",
+                     "occurred_at",
+                     "producer",
+                     "partition_key",
+                     "dedupe_key",
+                     "payload"
+                 ]
+}

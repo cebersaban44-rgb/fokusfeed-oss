@@ -1,0 +1,65 @@
+{
+    "$schema":  "https://json-schema.org/draft/2020-12/schema",
+    "$id":  "https://fokusfeed.dev/schemas/events/content.ingested.v1.schema.json",
+    "title":  "content.ingested v1",
+    "type":  "object",
+    "additionalProperties":  false,
+    "properties":  {
+                       "event_id":  {
+                                        "minLength":  1,
+                                        "type":  "string"
+                                    },
+                       "event_type":  {
+                                          "const":  "content.ingested"
+                                      },
+                       "event_version":  {
+                                             "const":  "v1"
+                                         },
+                       "occurred_at":  {
+                                           "type":  "string",
+                                           "format":  "date-time"
+                                       },
+                       "producer":  {
+                                        "minLength":  1,
+                                        "type":  "string"
+                                    },
+                       "partition_key":  {
+                                             "minLength":  1,
+                                             "type":  "string"
+                                         },
+                       "dedupe_key":  {
+                                          "minLength":  1,
+                                          "type":  "string"
+                                      },
+                       "payload":  {
+                                       "type":  "object",
+                                       "additionalProperties":  true,
+                                       "properties":  {
+                                                          "published_at":  {
+                                                                               "type":  "string"
+                                                                           },
+                                                          "content_id":  {
+                                                                             "type":  "string"
+                                                                         },
+                                                          "source":  {
+                                                                         "type":  "string"
+                                                                     }
+                                                      },
+                                       "required":  [
+                                                        "content_id",
+                                                        "source",
+                                                        "published_at"
+                                                    ]
+                                   }
+                   },
+    "required":  [
+                     "event_id",
+                     "event_type",
+                     "event_version",
+                     "occurred_at",
+                     "producer",
+                     "partition_key",
+                     "dedupe_key",
+                     "payload"
+                 ]
+}
