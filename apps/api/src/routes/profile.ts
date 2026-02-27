@@ -9,6 +9,7 @@ import { API_ERROR_CODES } from "../types";
 
 interface ProfileRouteOptions {
   encryptionKey: string;
+  readBudgetWindow?: string;
 }
 
 const llmKeySchema = z.object({
@@ -17,6 +18,8 @@ const llmKeySchema = z.object({
 });
 
 export async function profileRoutes(app: FastifyInstance, options: ProfileRouteOptions): Promise<void> {
+  const readBudgetWindow = options.readBudgetWindow ?? "10m";
+
   app.get("/v1/profile/interests", async (request) => {
     const data = store.getProfileInterests(request.authContext!.tenantId, request.authContext!.userId);
     return buildSuccess(request.requestId, { items: data });
@@ -24,6 +27,19 @@ export async function profileRoutes(app: FastifyInstance, options: ProfileRouteO
 
   app.get("/v1/profile/source-trust-graph", async (request) => {
     return buildSuccess(request.requestId, { items: store.getSourceTrustGraph() });
+  });
+
+  app.get("/v1/profile/twitter/status", async (request) => {
+    const status = store.getTwitterConnectionStatus(request.authContext!.tenantId, request.authContext!.userId);
+    return buildSuccess(request.requestId, {
+      connected: status.connected,
+      ...(status.lastSyncAt ? { lastSyncAt: status.lastSyncAt } : {}),
+      readBudget: {
+        used: 0,
+        remaining: 100,
+        window: readBudgetWindow
+      }
+    });
   });
 
   app.get("/v1/profile/llm-key/status", async (request) => {

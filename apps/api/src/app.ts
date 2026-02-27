@@ -92,7 +92,20 @@ export function createApp(options: AppOptions = {}) {
   });
 
   app.register(healthRoutes);
-  app.register(authRoutes);
+  app.register(authRoutes, {
+    encryptionKey: env.APP_ENCRYPTION_KEY,
+    now,
+    twitter: {
+      clientId: env.TWITTER_CLIENT_ID,
+      clientSecret: env.TWITTER_CLIENT_SECRET || undefined,
+      redirectUri: env.TWITTER_REDIRECT_URI,
+      scopes: env.TWITTER_SCOPES,
+      authorizeUrl: env.TWITTER_AUTHORIZE_URL,
+      tokenUrl: env.TWITTER_TOKEN_URL,
+      stateTtlSeconds: env.TWITTER_STATE_TTL_SECONDS,
+      oauthMock: env.TWITTER_OAUTH_MOCK
+    }
+  });
   app.register(sourceRoutes);
   app.register(feedRoutes);
   app.register(savedRoutes);

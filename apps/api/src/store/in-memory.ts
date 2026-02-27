@@ -28,6 +28,31 @@ export interface SessionRecord {
   endedAt?: string;
 }
 
+export interface OAuthStateSessionRecord {
+  id: string;
+  tenantId: string;
+  userId: string;
+  stateHash: string;
+  codeVerifierCiphertext: string;
+  createdAt: string;
+  expiresAt: string;
+  usedAt?: string;
+}
+
+export interface TwitterTokenRecord {
+  tenantId: string;
+  userId: string;
+  accessTokenCiphertext: string;
+  refreshTokenCiphertext?: string;
+  tokenType: string;
+  scope?: string;
+  createdAt: string;
+  expiresAt?: string;
+  updatedAt: string;
+  revokedAt?: string;
+  lastSyncAt?: string;
+}
+
 export class InMemoryStore {
   private rankedFeed = rankFeedCandidates(demoCandidates);
   private sources = [
@@ -41,6 +66,8 @@ export class InMemoryStore {
   private sessions = new Map<string, SessionRecord>();
   private timeSavedMetrics = new Map<string, number[]>();
   private llmKeys = new Map<string, LlmKeyRecord>();
+  private oauthStateSessions = new Map<string, OAuthStateSessionRecord>();
+  private twitterTokens = new Map<string, TwitterTokenRecord>();
 
   constructor() {
     this.savedByUser.set(this.userScope(demoTenantId, demoUserId), [...demoSavedItems]);
@@ -261,6 +288,76 @@ export class InMemoryStore {
     }
 
     return "deterministic";
+  }
+
+  createOAuthStateSession(
+    input: Pick<OAuthStateSessionRecord, "tenantId" | "userId" | "stateHash" | "codeVerifierCiphertext" | "expiresAt">
+  ): OAuthStateSessionRecord {
+    const record: OAuthStateSessionRecord = {
+      id: `oauth-state-${randomUUID()}`,
+      tenantId: input.tenantId,
+      userId: input.userId,
+      stateHash: input.stateHash,
+      codeVerifierCiphertext: input.codeVerifierCiphertext,
+      createdAt: new Date().toISOString(),
+      expiresAt: input.expiresAt
+    };
+
+    this.oauthStateSessions.set(input.stateHash, record);
+    return record;
+  }
+
+  consumeOAuthStateSession(stateHash: string): OAuthStateSessionRecord | undefined {
+    const session = this.oauthStateSessions.get(stateHash);
+    if (!session) {
+      return undefined;
+    }
+
+    const now = Date.now();
+    if (session.usedAt || Date.parse(session.expiresAt) <= now) {
+      this.oauthStateSessions.delete(stateHash);
+      return undefined;
+    }
+
+    session.usedAt = new Date(now).toISOString();
+    return session;
+  }
+
+  setTwitterToken(
+    tenantId: string,
+    userId: string,
+    token: Omit<TwitterTokenRecord, "tenantId" | "userId" | "updatedAt">
+  ): TwitterTokenRecord {
+    const scope = this.userScope(tenantId, userId);
+    const record: TwitterTokenRecord = {
+      ...token,
+      tenantId,
+      userId,
+      updatedAt: new Date().toISOString()
+    };
+
+    this.twitterTokens.set(scope, record);
+    return record;
+  }
+
+  getTwitterToken(tenantId: string, userId: string): TwitterTokenRecord | undefined {
+    return this.twitterTokens.get(this.userScope(tenantId, userId));
+  }
+
+  getTwitterConnectionStatus(
+    tenantId: string,
+    userId: string
+  ): { connected: boolean; connectedAt?: string; lastSyncAt?: string } {
+    const token = this.getTwitterToken(tenantId, userId);
+    if (!token || token.revokedAt) {
+      return { connected: false };
+    }
+
+    return {
+      connected: true,
+      connectedAt: token.createdAt,
+      ...(token.lastSyncAt ? { lastSyncAt: token.lastSyncAt } : {})
+    };
   }
 
   getProfileInterests(tenantId: string, userId: string): Array<{ topic: string; score: number }> {

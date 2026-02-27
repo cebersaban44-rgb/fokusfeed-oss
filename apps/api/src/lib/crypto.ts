@@ -33,3 +33,7 @@ export function decryptValue(cipherText: string, encryptionKey: string): string 
 export function fingerprintSecret(secret: string): string {
   return createHash("sha256").update(secret).digest("hex").slice(0, 16);
 }
+
+export function hashValue(value: string): string {
+  return createHash("sha256").update(value).digest("hex");
+}
