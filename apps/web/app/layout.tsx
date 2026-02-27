@@ -14,8 +14,8 @@ const swBootScript =
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body>
+    <html lang="en" suppressHydrationWarning>
+      <body suppressHydrationWarning>
         <script dangerouslySetInnerHTML={{ __html: swBootScript }} />
         <div className="app-shell">
           <Nav />

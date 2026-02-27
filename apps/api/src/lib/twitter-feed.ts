@@ -336,25 +336,43 @@ function shouldFallbackToOwnTweets(error: unknown): boolean {
   return error instanceof TwitterFeedError && (error.statusCode === 403 || error.statusCode === 404);
 }
 
-export async function fetchTwitterFeedItems(input: FetchTwitterFeedInput): Promise<FeedItem[]> {
-  const me = await fetchMe(input.accessToken);
-
-  let response: TwitterListResponse<TwitterTweet>;
+async function fetchBestEffortTweets(
+  userId: string,
+  accessToken: string,
+  mode: "digest" | "live",
+  limit: number
+): Promise<TwitterListResponse<TwitterTweet>> {
   try {
-    response = await fetchTimeline(me.id, input.accessToken, input.mode, Math.min(input.limit, 50));
+    return await fetchTimeline(userId, accessToken, mode, limit);
   } catch (error) {
     if (!shouldFallbackToOwnTweets(error)) {
       throw error;
     }
 
-    response = await fetchOwnTweets(me.id, input.accessToken, input.mode, Math.min(input.limit, 50));
+    return fetchOwnTweets(userId, accessToken, mode, limit);
   }
+}
+
+export async function fetchTwitterFeedItems(input: FetchTwitterFeedInput): Promise<FeedItem[]> {
+  const me = await fetchMe(input.accessToken);
+  const boundedLimit = Math.min(input.limit, 50);
+
+  let response = await fetchBestEffortTweets(me.id, input.accessToken, input.mode, boundedLimit);
 
   const tweets = response.data ?? [];
   const users = response.includes?.users ?? [];
   const userById = new Map(users.map((user) => [user.id, user]));
   const mapped = tweets.map((tweet) => toFeedItem(tweet, userById.get(tweet.author_id ?? me.id) ?? me, response.includes));
 
-  const filtered = input.category ? mapped.filter((item) => item.category === input.category) : mapped;
+  let filtered = input.category ? mapped.filter((item) => item.category === input.category) : mapped;
+  if (input.mode === "digest" && filtered.length === 0) {
+    response = await fetchBestEffortTweets(me.id, input.accessToken, "live", boundedLimit);
+    const liveTweets = response.data ?? [];
+    const liveUsers = response.includes?.users ?? [];
+    const liveUserById = new Map(liveUsers.map((user) => [user.id, user]));
+    const mappedLive = liveTweets.map((tweet) => toFeedItem(tweet, liveUserById.get(tweet.author_id ?? me.id) ?? me, response.includes));
+    filtered = input.category ? mappedLive.filter((item) => item.category === input.category) : mappedLive;
+  }
+
   return filtered.slice(0, input.limit);
 }

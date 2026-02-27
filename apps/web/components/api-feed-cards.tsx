@@ -62,6 +62,7 @@ interface FeedResponse {
   };
   message?: string;
   code?: FeedErrorCode;
+  details?: Record<string, unknown>;
 }
 
 const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
@@ -107,7 +108,9 @@ function displayMediaUrl(item: FeedMedia): string | undefined {
 
 export function ApiFeedCards({ mode }: { mode: FeedMode }) {
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<{ code?: FeedErrorCode; message: string } | null>(null);
+  const [error, setError] = useState<{ code?: FeedErrorCode; message: string; details?: Record<string, unknown> } | null>(
+    null
+  );
   const [items, setItems] = useState<FeedItem[]>([]);
 
   const load = async () => {
@@ -127,7 +130,8 @@ export function ApiFeedCards({ mode }: { mode: FeedMode }) {
       if (!response.ok) {
         setError({
           code: payload.code,
-          message: mapErrorMessage(payload.code, payload.message)
+          message: mapErrorMessage(payload.code, payload.message),
+          details: payload.details
         });
         setItems([]);
         return;
@@ -159,6 +163,10 @@ export function ApiFeedCards({ mode }: { mode: FeedMode }) {
       <section className="panel error-panel" role="alert">
         <h3 style={{ marginTop: 0 }}>Feed su an acilamiyor</h3>
         <p>{error.message}</p>
+        {error.code ? <p className="footer-note">Hata kodu: {error.code}</p> : null}
+        {error.details ? (
+          <pre className="error-details">{JSON.stringify(error.details, null, 2)}</pre>
+        ) : null}
         <div className="controls">
           <button type="button" className="btn" onClick={load}>
             Tekrar Dene
