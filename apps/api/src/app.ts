@@ -94,6 +94,7 @@ export function createApp(options: AppOptions = {}) {
   app.register(healthRoutes);
   app.register(authRoutes, {
     encryptionKey: env.APP_ENCRYPTION_KEY,
+    webAppUrl: `http://localhost:${env.WEB_PORT}`,
     now,
     twitter: {
       clientId: env.TWITTER_CLIENT_ID,

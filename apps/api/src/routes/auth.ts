@@ -19,6 +19,7 @@ const callbackQuerySchema = z.object({
 
 interface AuthRouteOptions {
   encryptionKey: string;
+  webAppUrl: string;
   now?: () => Date;
   twitter: {
     clientId: string;
@@ -54,6 +55,7 @@ function buildTwitterAuthorizeUrl(
 
 export async function authRoutes(app: FastifyInstance, options: AuthRouteOptions): Promise<void> {
   const now = options.now ?? (() => new Date());
+  const onboardingRedirectUrl = new URL("/onboarding?twitter=connected", options.webAppUrl).toString();
 
   app.post("/v1/auth/twitter/start", async (request, reply) => {
     const scope = `${request.authContext?.tenantId}:${request.authContext?.userId}:${request.url}`;
@@ -155,6 +157,6 @@ export async function authRoutes(app: FastifyInstance, options: AuthRouteOptions
       ...(token.expires_in ? { expiresAt: new Date(nowDate.getTime() + token.expires_in * 1000).toISOString() } : {})
     });
 
-    reply.redirect("/onboarding?twitter=connected", 302);
+    reply.redirect(onboardingRedirectUrl, 302);
   });
 }

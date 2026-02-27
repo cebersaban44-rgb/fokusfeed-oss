@@ -106,7 +106,7 @@ describe("API integration", () => {
     });
 
     expect(callback.statusCode).toBe(302);
-    expect(callback.headers.location).toBe("/onboarding?twitter=connected");
+    expect(callback.headers.location).toBe("http://localhost:3000/onboarding?twitter=connected");
 
     const status = await app.inject({
       method: "GET",
